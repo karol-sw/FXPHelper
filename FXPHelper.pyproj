@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>54ab305d-29d8-4ba6-a838-d751577a02fb</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>examples\ex1_simple_conversion.py</StartupFile>
+    <StartupFile>examples\ex2_simple_arithmetic.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -21,6 +21,9 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="examples\ex2_simple_arithmetic.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="examples\ex1_simple_conversion.py">
       <SubType>Code</SubType>
     </Compile>

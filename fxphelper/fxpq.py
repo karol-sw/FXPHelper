@@ -65,6 +65,31 @@ class FXPQNumber():
     #     self.n = 0
 
 
+    def sym_round(self, round_factor):
+        """
+        Symetric round operation is used to increase or decrease number's friction precision
+        """
+        if round_factor < 0:
+            _hex_value = self.hex_value << (-round_factor)
+        else:
+            _hex_value += (1 << (round_factor-1))
+            _hex_value = (_hex_value >> round_factor)
+
+        _res = FXPQNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE-round_factor, _hex_value)
+        return _res
+
+    def resize(self, sign_size, m_size, n_size):
+        """
+        Resize function may be used when we want to interpret current hex as it was in different Q format
+        Typical usecase: A Q(1.1.2) + B Q(1.1.2) = C Q(1.1.2) - adding with no overflow
+        C = A+B             # C will be in format Q(1.2.2)
+        C.resize(1,1,2)     # resize to format Q(1.1.2)
+        """
+        self.SIGN_SIZE = sign_size
+        self.M_SIZE=m_size
+        self.N_SIZE=n_size
+        self.load_hex(self.hex)
+
     # a little hack is here - by default __str__ in numpy for unknown types displays
     # a type - so we will override a type return value to get a real number value
     def __repr__(self):
@@ -81,7 +106,7 @@ class FXPQNumber():
         # calculate result
         _c = _a + _b
         # _c &= (1 << (self.M_SIZE + self.N_SIZE + self.SIGN_SIZE + 1))-1 # mask is already in load_hex - no need here
-        _res = FXPQNumber(self.SIGN_SIZE, self.M_SIZE+1, self.N_SIZE, _c)
+        _res = FXPQNumber(self.SIGN_SIZE, max(self.M_SIZE, y.M_SIZE)+1, self.N_SIZE, _c)
         return _res
 
     def __sub__(self, y):
@@ -91,14 +116,24 @@ class FXPQNumber():
 
         # calculate result
         _c = _a - _b
-        # _c &= (1 << (self.M_SIZE + self.N_SIZE + self.SIGN_SIZE + 1))-1 # mask is already in load_hex - no need here
-        _res = FXPQNumber(self.SIGN_SIZE, self.M_SIZE+1, self.N_SIZE, _c)
+        _res = FXPQNumber(self.SIGN_SIZE, max(self.M_SIZE, y.M_SIZE)+1, self.N_SIZE, _c)
         return _res
 
     def __mul__(self, y):
-        # TODO:not working for signed numbers!
-        _res = FXPQNumber(self.SIGN_SIZE, self.M_SIZE+y.M_SIZE, self.N_SIZE+y.N_SIZE)
-        _res.load_hex(self.hex_value * y.to_hex())
+        # resize arguments to target format by multiplying MSB
+        _new_size = self.N_SIZE + self.M_SIZE + y.M_SIZE + y.N_SIZE # + max([self.SIGN_SIZE != 0, y.SIGN_SIZE])
+
+        _mask = (-1 << (self.N_SIZE + self.M_SIZE)) & ((1 << _new_size)-1)
+        _mask *= self.sign
+        _a = self.hex_value | _mask
+
+        _mask = (-1 << (y.N_SIZE + y.M_SIZE)) & ((1 << _new_size)-1)
+        _mask *= y.sign
+        _b = y.hex_value | _mask
+
+        # calculate result
+        _c = _a * _b
+        _res = FXPQNumber(max([self.SIGN_SIZE, y.SIGN_SIZE]), self.M_SIZE+y.M_SIZE, self.N_SIZE+y.N_SIZE, _c)
         return _res
 
 # a complex number in Q format

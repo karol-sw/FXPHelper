@@ -145,8 +145,8 @@ class FXPQComplex():
         self.N_SIZE=N_SIZE
         self.TOTAL_SIZE = SIGN_SIZE + M_SIZE + N_SIZE
 
-        self.qRE = FXP_QNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE)
-        self.qIMG = FXP_QNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE)
+        self.qRE = FXPQNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE)
+        self.qIMG = FXPQNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE)
 
         self.load_hex(hex_value)
 
@@ -183,13 +183,13 @@ class FXPQComplex():
         _res_RE = self.qRE + y.qRE
         _res_IMG = self.qIMG + y.qIMG
         _hex_value = (_res_IMG.to_hex() << (self.TOTAL_SIZE + 1)) | _res_RE.to_hex()
-        return FXP_QComplex(self.SIGN_SIZE, self.M_SIZE+1, self.N_SIZE, _hex_value)
+        return FXPQComplex(self.SIGN_SIZE, self.M_SIZE+1, self.N_SIZE, _hex_value)
 
     def __sub__(self, y):
         _res_RE = self.qRE - y.qRE
         _res_IMG = self.qIMG - y.qIMG
         _hex_value = (_res_IMG.to_hex() << (self.TOTAL_SIZE + 1)) | _res_RE.to_hex()
-        return FXP_QComplex(self.SIGN_SIZE, self.M_SIZE+1, self.N_SIZE, _hex_value)
+        return FXPQComplex(self.SIGN_SIZE, self.M_SIZE+1, self.N_SIZE, _hex_value)
 
     def __mul__(self, y):
         return 4

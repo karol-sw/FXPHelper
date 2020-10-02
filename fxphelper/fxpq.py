@@ -1,6 +1,7 @@
 class FXPQNumber():
-    def __init__(self, SIGN_SIZE, M_SIZE, N_SIZE, hex_value=0):
+    def __init__(self, SIGN_SIZE, M_SIZE, N_SIZE, hex_value=0, float_value=0):
         # Q(SIGN.M.N)
+        # TODO: add configuration describing default display method (hex/float)
         self.SIGN_SIZE = SIGN_SIZE
         self.M_SIZE=M_SIZE
         self.N_SIZE=N_SIZE
@@ -9,10 +10,15 @@ class FXPQNumber():
         self.hex_value = 0
         self.sign = 0
 
-        self.load_hex(hex_value)
+        if hex_value:
+            self.load_hex(hex_value)
+        elif float_value:
+            self.load_float(float_value)
 
     def load_hex(self, h):
         _mask = (1 << self.TOTAL_SIZE)-1
+        # truncate MSbits - this will also convert to unsigned hex format
+        # (so python will no longer display '-' in hex print)
         self.hex_value = h & _mask
 
         # extract sign
@@ -22,9 +28,8 @@ class FXPQNumber():
             self.sign = 0
 
     def load_float(self, value):
+        # convert to hex value
         _tmp = int(round(value * (1 << self.N_SIZE)))
-        # truncate MSbits - this will also convert to unsigned format
-        #_tmp = _tmp & ( (1 << (self.N_SIZE + self.M_SIZE + self.SIGN_SIZE)) - 1)
         self.load_hex(_tmp)
 
     def to_hex(self):
@@ -69,11 +74,14 @@ class FXPQNumber():
         """
         Symetric round operation is used to increase or decrease number's friction precision
         """
+        # TODO: check if _scale can be used
         if round_factor < 0:
             _hex_value = self.hex_value << (-round_factor)
-        else:
-            _hex_value += (1 << (round_factor-1))
+        elif round_factor > 0:
+            _hex_value = self.hex_value + (1 << (round_factor-1))
             _hex_value = (_hex_value >> round_factor)
+        else:
+            _hex_value = self.hex_value
 
         _res = FXPQNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE-round_factor, _hex_value)
         return _res
@@ -88,7 +96,24 @@ class FXPQNumber():
         self.SIGN_SIZE = sign_size
         self.M_SIZE=m_size
         self.N_SIZE=n_size
-        self.load_hex(self.hex)
+        self.TOTAL_SIZE = sign_size + m_size + n_size
+        self.load_hex(self.hex_value)
+
+    # def _scale(self, sign_size, m_size, n_size):
+    #     # returns a hex scaled to given size
+    #     # TODO
+    #     pass
+    #
+    # def scale(self, sign_size, m_size, n_size):
+    #     """
+    #     Scale current number to different Q format without changing its (float) value.
+    #     """
+    #     _hex_value = _scale(self.hex_value, sign_size, m_size, n_size)
+    #     self.SIGN_SIZE = sign_size
+    #     self.M_SIZE=m_size
+    #     self.N_SIZE=n_size
+    #     self.TOTAL_SIZE = sign_size + m_size + n_size
+    #     self.load_hex(_hex_value)
 
     # a little hack is here - by default __str__ in numpy for unknown types displays
     # a type - so we will override a type return value to get a real number value
@@ -99,15 +124,27 @@ class FXPQNumber():
         return str(hex(self.hex_value))
 
     def __add__(self, y):
+        # TODO: add detecting non-FXP types for all functions (to allow operations with constants)
+        if isinstance(y, (int, float)):
+            _y = FXPQNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE)
+            _y.load_float(y)
+        else:
+            _y = y
+
         # resize arguments to target format by multiplying MSB
+        # TODO: use _scale function and scale to:
+        # max(self.sign_size, y.sign_size), max(self.m_size, y.m_size), max(self.n_size, y.n_size)
         _a = self.hex_value | (self.sign << self.TOTAL_SIZE)
-        _b = y.hex_value | (y.sign << y.TOTAL_SIZE)
+        _b = _y.hex_value | (_y.sign << _y.TOTAL_SIZE)
 
         # calculate result
         _c = _a + _b
         # _c &= (1 << (self.M_SIZE + self.N_SIZE + self.SIGN_SIZE + 1))-1 # mask is already in load_hex - no need here
-        _res = FXPQNumber(self.SIGN_SIZE, max(self.M_SIZE, y.M_SIZE)+1, self.N_SIZE, _c)
+        _res = FXPQNumber(self.SIGN_SIZE, max(self.M_SIZE, _y.M_SIZE)+1, self.N_SIZE, _c)
         return _res
+
+    # TODO: add __r* to all types (to support constants on the left side of operation)
+    __radd__ = __add__
 
     def __sub__(self, y):
         # resize arguments to target format by multiplying MSB
@@ -139,8 +176,8 @@ class FXPQNumber():
 # a complex number in Q format
 class FXPQComplex():
     # re[Q(SIGN.M.N)], img[Q(SIGN.M.N)]
-    def __init__(self, SIGN_SIZE, M_SIZE, N_SIZE, hex_value=0):
-        self.SIGN_SIZE = SIGN_SIZE
+    def __init__(self, SIGN_SIZE, M_SIZE, N_SIZE, hex_value=0, complex_value=complex(0, 0)):
+        self.SIGN_SIZE = SIGN_SIZE  # TODO: check which sizes are needed in this class
         self.M_SIZE=M_SIZE
         self.N_SIZE=N_SIZE
         self.TOTAL_SIZE = SIGN_SIZE + M_SIZE + N_SIZE
@@ -148,7 +185,10 @@ class FXPQComplex():
         self.qRE = FXPQNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE)
         self.qIMG = FXPQNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE)
 
-        self.load_hex(hex_value)
+        if hex_value:
+            self.load_hex(hex_value)
+        elif complex_value:
+            self.load_float(complex_value)
 
     def load_hex(self, h):
         _mask = (1 << self.TOTAL_SIZE) - 1
@@ -157,9 +197,9 @@ class FXPQComplex():
         self.qRE.load_hex(_re)
         self.qIMG.load_hex(_img)
 
-    def load_float(self, re_value, img_value):
-        self.qRE.load_float(re_value)
-        self.qIMG.load_float(img_value)
+    def load_complex(self, f):
+        self.qRE.load_float(f.real)
+        self.qIMG.load_float(f.imag)
 
     def to_hex(self):
         _tmp = 0
@@ -167,10 +207,31 @@ class FXPQComplex():
         _tmp |= self.qIMG.to_hex() << self.TOTAL_SIZE
         return _tmp
 
-    def to_float(self):
+    def to_complex(self):
         _re = self.qRE.to_float()
         _img = self.qIMG.to_float()
         return complex(_re, _img)
+
+    def sym_round(self, round_factor):
+        _re = self.qRE.sym_round(round_factor)
+        _img = self.qIMG.sym_round(round_factor)
+        _hex_value = (_img.to_hex() << _img.TOTAL_SIZE) | _re.to_hex()
+        return FXPQComplex(_re.SIGN_SIZE, _re.M_SIZE, _re.N_SIZE, _hex_value)
+
+    def resize(self, sign_size, m_size, n_size):
+        """
+        Resize function may be used when we want to interpret current hex as it was in different Q format
+        Typical usecase: A Q(1.1.2) + B Q(1.1.2) = C Q(1.1.2) - adding with no overflow
+        C = A+B             # C will be in format Q(1.2.2)
+        C.resize(1,1,2)     # resize to format Q(1.1.2)
+        """
+        self.SIGN_SIZE = sign_size
+        self.M_SIZE=m_size
+        self.N_SIZE=n_size
+        self.TOTAL_SIZE = sign_size + m_size + n_size
+
+        self.qRE.resize(sign_size, m_size, n_size)
+        self.qIMG.resize(sign_size, m_size, n_size)
 
     def __repr__(self):
         # return "{:x} +j{:x}".format(self.qRE.to_hex(), self.qIMG.to_hex())
@@ -192,4 +253,15 @@ class FXPQComplex():
         return FXPQComplex(self.SIGN_SIZE, self.M_SIZE+1, self.N_SIZE, _hex_value)
 
     def __mul__(self, y):
-        return 4
+        # calculate RE and IMG part
+        _res_RE = self.qRE*y.qRE - self.qIMG*y.qIMG
+        _res_IMG = self.qRE*y.qIMG + self.qIMG*y.qRE
+
+        # resize is needed as +/- operation increased m_size 1 bit too much
+        _res_RE.resize(_res_RE.SIGN_SIZE, _res_RE.M_SIZE-1, _res_RE.N_SIZE)
+        _res_IMG.resize(_res_IMG.SIGN_SIZE, _res_IMG.M_SIZE-1, _res_IMG.N_SIZE)
+
+        # pack and return
+        _hex_value = (_res_IMG.to_hex() << _res_RE.TOTAL_SIZE) | _res_RE.to_hex()
+        return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value)
+

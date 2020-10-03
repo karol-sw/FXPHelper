@@ -27,6 +27,9 @@
     <Compile Include="examples\ex1_simple_conversion.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="examples\ex3_scaling.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="fxphelper\fxpq.py">
       <SubType>Code</SubType>
     </Compile>

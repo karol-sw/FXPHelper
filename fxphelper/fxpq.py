@@ -165,55 +165,64 @@ class FXPQNumber():
     def __str__(self):
         return str(hex(self.hex_value))
 
-    def __add__(self, y):
-        # TODO: add detecting non-FXP types for all functions (to allow operations with constants)
+    def _convert_arg(self, y):
+        # for internal purpose only
+        # check argument type and convert to FXP if needed
         if isinstance(y, (int, float)):
-            _y = FXPQNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE)
-            _y.load_float(y)
+            _y = FXPQNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE, float_value=y)
         else:
             _y = y
 
-        # resize arguments to target format by multiplying MSB
-        # TODO: use _scale function and scale to:
-        # max(self.sign_size, y.sign_size), max(self.m_size, y.m_size), max(self.n_size, y.n_size)
-        _a = self.hex_value | (self.sign << self.TOTAL_SIZE)
-        _b = _y.hex_value | (_y.sign << _y.TOTAL_SIZE)
+        return _y
+
+    def __add__(self, y):
+        # if not FXPQNumber - convert
+        _y = self._convert_arg(y)
+
+        # resize arguments to target format
+        _a = self._scale(max(self.SIGN_SIZE, _y.SIGN_SIZE), max(self.M_SIZE, _y.M_SIZE)+1, max(self.N_SIZE, _y.N_SIZE))
+        _b = _y._scale(max(self.SIGN_SIZE, _y.SIGN_SIZE), max(self.M_SIZE, _y.M_SIZE)+1, max(self.N_SIZE, _y.N_SIZE))
 
         # calculate result
         _c = _a + _b
         # _c &= (1 << (self.M_SIZE + self.N_SIZE + self.SIGN_SIZE + 1))-1 # mask is already in load_hex - no need here
-        _res = FXPQNumber(self.SIGN_SIZE, max(self.M_SIZE, _y.M_SIZE)+1, self.N_SIZE, _c)
+        _res = FXPQNumber(max(self.SIGN_SIZE, _y.SIGN_SIZE), max(self.M_SIZE, _y.M_SIZE)+1, max(self.N_SIZE, _y.N_SIZE), _c)
         return _res
 
-    # TODO: add __r* to all types (to support constants on the left side of operation)
     __radd__ = __add__
 
     def __sub__(self, y):
-        # resize arguments to target format by multiplying MSB
-        _a = self.hex_value | (self.sign << self.TOTAL_SIZE)
-        _b = y.hex_value | (y.sign << y.TOTAL_SIZE)
+        # if not FXPQNumber - convert
+        _y = self._convert_arg(y)
+
+        # resize arguments to target format
+        _a = self._scale(max(self.SIGN_SIZE, _y.SIGN_SIZE), max(self.M_SIZE, _y.M_SIZE)+1, max(self.N_SIZE, _y.N_SIZE))
+        _b = _y._scale(max(self.SIGN_SIZE, _y.SIGN_SIZE), max(self.M_SIZE, _y.M_SIZE)+1, max(self.N_SIZE, _y.N_SIZE))
 
         # calculate result
         _c = _a - _b
-        _res = FXPQNumber(self.SIGN_SIZE, max(self.M_SIZE, y.M_SIZE)+1, self.N_SIZE, _c)
+        _res = FXPQNumber(max(self.SIGN_SIZE, _y.SIGN_SIZE), max(self.M_SIZE, _y.M_SIZE)+1, max(self.N_SIZE, _y.N_SIZE), _c)
         return _res
 
+    __rsub__ = __sub__
+
     def __mul__(self, y):
+        # if not FXPQNumber - convert
+        _y = self._convert_arg(y)
+
         # resize arguments to target format by multiplying MSB
+        # note that we not normalize the N part for mult (like it was for add or sub)
         _new_size = self.N_SIZE + self.M_SIZE + y.M_SIZE + y.N_SIZE # + max([self.SIGN_SIZE != 0, y.SIGN_SIZE])
 
-        _mask = (-1 << (self.N_SIZE + self.M_SIZE)) & ((1 << _new_size)-1)
-        _mask *= self.sign
-        _a = self.hex_value | _mask
-
-        _mask = (-1 << (y.N_SIZE + y.M_SIZE)) & ((1 << _new_size)-1)
-        _mask *= y.sign
-        _b = y.hex_value | _mask
+        _a = self._scale(max(self.SIGN_SIZE, _y.SIGN_SIZE), _new_size - self.N_SIZE, self.N_SIZE)
+        _b = _y._scale(max(self.SIGN_SIZE, _y.SIGN_SIZE), _new_size - _y.N_SIZE, _y.N_SIZE)
 
         # calculate result
         _c = _a * _b
-        _res = FXPQNumber(max([self.SIGN_SIZE, y.SIGN_SIZE]), self.M_SIZE+y.M_SIZE, self.N_SIZE+y.N_SIZE, _c)
+        _res = FXPQNumber(max(self.SIGN_SIZE, y.SIGN_SIZE), self.M_SIZE+y.M_SIZE, self.N_SIZE+y.N_SIZE, _c)
         return _res
+
+    __rmul__ = __mul__
 
 # a complex number in Q format
 class FXPQComplex():

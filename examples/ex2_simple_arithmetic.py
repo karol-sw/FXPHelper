@@ -51,3 +51,8 @@ Qcy = Qca*Qcb
 print(cy)
 print(Qcy.to_complex())
 
+print("Mult by const")
+y = a*4
+z = 0.1*b
+print(y)
+print(z)

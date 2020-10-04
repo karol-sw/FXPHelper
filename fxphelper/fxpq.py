@@ -228,18 +228,15 @@ class FXPQNumber():
 class FXPQComplex():
     # re[Q(SIGN.M.N)], img[Q(SIGN.M.N)]
     def __init__(self, SIGN_SIZE, M_SIZE, N_SIZE, hex_value=0, complex_value=complex(0, 0)):
-        self.SIGN_SIZE = SIGN_SIZE  # TODO: check which sizes are needed in this class
-        self.M_SIZE=M_SIZE
-        self.N_SIZE=N_SIZE
         self.TOTAL_SIZE = SIGN_SIZE + M_SIZE + N_SIZE
 
-        self.qRE = FXPQNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE)
-        self.qIMG = FXPQNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE)
+        self.qRE = FXPQNumber(SIGN_SIZE, M_SIZE, N_SIZE)
+        self.qIMG = FXPQNumber(SIGN_SIZE, M_SIZE, N_SIZE)
 
         if hex_value:
             self.load_hex(hex_value)
         elif complex_value:
-            self.load_float(complex_value)
+            self.load_complex(complex_value)
 
     def load_hex(self, h):
         _mask = (1 << self.TOTAL_SIZE) - 1
@@ -263,11 +260,29 @@ class FXPQComplex():
         _img = self.qIMG.to_float()
         return complex(_re, _img)
 
+    def get_format(self):
+        return self.qRE.get_format()
+
     def sym_round(self, round_factor):
+        """
+        Symetric round operation is used to increase or decrease number's friction precision
+        """
         _re = self.qRE.sym_round(round_factor)
         _img = self.qIMG.sym_round(round_factor)
         _hex_value = (_img.to_hex() << _img.TOTAL_SIZE) | _re.to_hex()
         return FXPQComplex(_re.SIGN_SIZE, _re.M_SIZE, _re.N_SIZE, _hex_value)
+
+    def scale(self, sign_size, m_size, n_size, round=False):
+        """
+        Scale current number to different Q format without changing its (float) value.
+        """
+        self.SIGN_SIZE = sign_size
+        self.M_SIZE=m_size
+        self.N_SIZE=n_size
+        self.TOTAL_SIZE = sign_size + m_size + n_size
+
+        self.qRE.scale(sign_size, m_size, n_size, round)
+        self.qIMG.scale(sign_size, m_size, n_size, round)
 
     def resize(self, sign_size, m_size, n_size):
         """
@@ -291,22 +306,45 @@ class FXPQComplex():
     def __str__(self):
         return str(complex(self.qRE.to_float(), self.qIMG.to_float()))
 
+    def _convert_arg(self, y):
+        # for internal purpose only
+        # check argument type and convert to FXP if needed
+        if isinstance(y, (complex)):
+            _y = FXPQComplex (self.qRE.SIGN_SIZE, self.qRE.M_SIZE, self.qRE.N_SIZE, complex_value=y)
+        elif isinstance(y, (int, float)):
+            _y = FXPQComplex (self.qRE.SIGN_SIZE, self.qRE.M_SIZE, self.qRE.N_SIZE, complex_value=complex(y, 0))
+        else:
+            _y = y
+            print("y")
+
+        return _y
+
     def __add__(self, y):
-        _res_RE = self.qRE + y.qRE
-        _res_IMG = self.qIMG + y.qIMG
-        _hex_value = (_res_IMG.to_hex() << (self.TOTAL_SIZE + 1)) | _res_RE.to_hex()
-        return FXPQComplex(self.SIGN_SIZE, self.M_SIZE+1, self.N_SIZE, _hex_value)
+        _y = self._convert_arg(y)
+
+        _res_RE = self.qRE + _y.qRE
+        _res_IMG = self.qIMG + _y.qIMG
+        _hex_value = (_res_IMG.to_hex() << _res_IMG.TOTAL_SIZE) | _res_RE.to_hex()
+        return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value)
+
+    __radd__ = __add__
 
     def __sub__(self, y):
-        _res_RE = self.qRE - y.qRE
-        _res_IMG = self.qIMG - y.qIMG
-        _hex_value = (_res_IMG.to_hex() << (self.TOTAL_SIZE + 1)) | _res_RE.to_hex()
-        return FXPQComplex(self.SIGN_SIZE, self.M_SIZE+1, self.N_SIZE, _hex_value)
+        _y = self._convert_arg(y)
+
+        _res_RE = self.qRE - _y.qRE
+        _res_IMG = self.qIMG - _y.qIMG
+        _hex_value = (_res_IMG.to_hex() << _res_IMG.TOTAL_SIZE) | _res_RE.to_hex()
+        return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value)
+
+    __rsub__ = __sub__
 
     def __mul__(self, y):
+        _y = self._convert_arg(y)
+
         # calculate RE and IMG part
-        _res_RE = self.qRE*y.qRE - self.qIMG*y.qIMG
-        _res_IMG = self.qRE*y.qIMG + self.qIMG*y.qRE
+        _res_RE = self.qRE*_y.qRE - self.qIMG*_y.qIMG
+        _res_IMG = self.qRE*_y.qIMG + self.qIMG*_y.qRE
 
         # resize is needed as +/- operation increased m_size 1 bit too much
         _res_RE.resize(_res_RE.SIGN_SIZE, _res_RE.M_SIZE-1, _res_RE.N_SIZE)
@@ -316,3 +354,4 @@ class FXPQComplex():
         _hex_value = (_res_IMG.to_hex() << _res_RE.TOTAL_SIZE) | _res_RE.to_hex()
         return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value)
 
+    __rmul__ = __mul__

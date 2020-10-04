@@ -56,3 +56,7 @@ y = a*4
 z = 0.1*b
 print(y)
 print(z)
+Qcy = Qca*4
+Qcz = complex(0.1, 0.1)*Qcb
+print(Qcy.to_complex())
+print(Qcz.to_complex())

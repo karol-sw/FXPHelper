@@ -1,7 +1,7 @@
 class FXPQNumber():
     def __init__(self, SIGN_SIZE, M_SIZE, N_SIZE, hex_value=0, float_value=0):
         # Q(SIGN.M.N)
-        # TODO: add configuration describing default display method (hex/float)
+        # TODO: add configuration describing default display method (hex/float/combined)
         if SIGN_SIZE:
             self.SIGN_SIZE = 1
         else:
@@ -102,24 +102,24 @@ class FXPQNumber():
                 _hex_value = self.hex_value + (1 << (-_delta_n-1))
             _hex_value = (_hex_value >> -_delta_n)
 
-        # extract _n and _m values
+        # extract _s, _n and _m values
         _n = _hex_value & ((1 << n_size) - 1)
         _m = (_hex_value >> n_size) & ((1 << self.M_SIZE) -1 )
+        # self.sign cannot be used as rounding may change the sign value
+        # (rounding negative value to 0)
+        if sign_size:
+            _s = (_hex_value >> (n_size + self.M_SIZE)) & 1
+        else:
+            _s = 0
 
         # now resize the M part
         if _delta_m > 0:
             # increase capacity - fill left side with sign
             for i in range(_delta_m):
-                _m |= self.sign << (self.M_SIZE+i)
+                _m |= _s << (self.M_SIZE+i)
         elif _delta_m < 0:
             # decrease capacity - cut left side (and pray to not lost anything)
             _m &= ((1 << m_size)-1)
-
-        # evaluate the sign part
-        if sign_size:
-            _s = self.sign
-        else:
-            _s = 0
 
         # combine all together and return
         _hex_value = _n | (_m << n_size) | (_s << (n_size+m_size))
@@ -127,7 +127,7 @@ class FXPQNumber():
 
     def sym_round(self, round_factor):
         """
-        Symetric round operation is used to increase or decrease number's friction precision
+        Symmetric round operation is used to increase or decrease number's friction precision
         """
         _hex_value = self._scale(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE-round_factor, True)
         _res = FXPQNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE-round_factor, _hex_value)
@@ -265,7 +265,7 @@ class FXPQComplex():
 
     def sym_round(self, round_factor):
         """
-        Symetric round operation is used to increase or decrease number's friction precision
+        Symmetric round operation is used to increase or decrease number's friction precision
         """
         _re = self.qRE.sym_round(round_factor)
         _img = self.qIMG.sym_round(round_factor)
@@ -315,7 +315,6 @@ class FXPQComplex():
             _y = FXPQComplex (self.qRE.SIGN_SIZE, self.qRE.M_SIZE, self.qRE.N_SIZE, complex_value=complex(y, 0))
         else:
             _y = y
-            print("y")
 
         return _y
 

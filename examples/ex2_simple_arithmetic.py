@@ -60,3 +60,15 @@ Qcy = Qca*4
 Qcz = complex(0.1, 0.1)*Qcb
 print(Qcy.to_complex())
 print(Qcz.to_complex())
+
+print("DIV")
+#Qa.load_float(0.065)
+#Qb.load_float(-0.25)
+y = a/b
+Qy = Qa/Qb
+print(y)
+print(Qy.to_float())
+#cy = ca/cb
+#Qcy = Qca/Qcb
+#print(cy)
+#print(Qcy.to_complex())

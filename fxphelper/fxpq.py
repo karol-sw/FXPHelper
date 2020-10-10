@@ -224,6 +224,91 @@ class FXPQNumber():
 
     __rmul__ = __mul__
 
+    def __abs__(self):
+        # returns absolute value
+        if self.sign:
+            _h = ~self.hex_value + 1
+        else:
+            _h = self.hex_value
+
+        _res = FXPQNumber(0, self.M_SIZE, self.N_SIZE, _h)
+        return _res
+
+
+    def __truediv__(self, y):
+        print(y)
+        # if not FXPQNumber - convert
+        _b = self._convert_arg(y)
+
+        # store sign value
+        if _b.sign == self.sign:
+            _sign = 0
+        else:
+            _sign = 1
+
+        # for fxp DIV operations q=a/b instead of resizing both arguments
+        # we need to resize only the dividend (a) to format matching
+        # a=q*b
+        # Assuming that we want result to be in the same format as dividend (before resizing):
+        _a = self._scale(self.SIGN_SIZE, self.M_SIZE+_b.M_SIZE, self.N_SIZE+_b.N_SIZE)
+
+        # store divisor size
+        _divisor_size = self.M_SIZE+_b.M_SIZE + self.N_SIZE+_b.N_SIZE
+
+        # get hex values to calculations (without sign)
+        # print(hex(_a))
+        # print(hex(_b.to_hex()))
+        if self.sign:
+            _a = ~_a + 1
+            _a &= (1 << _divisor_size)-1
+        _b = abs(_b).to_hex()
+
+        # print(hex(_sign))
+        # print(hex(_a))
+        # print(hex(_b))
+        # now we can do the calculation (for example with long division algorithm)
+        _q = 0
+        _acum = 0
+        print("End of iteration: S, q={:b}, _a={:b}, _acum={:b}". format(_q, _a, _acum))
+        for i in range(_divisor_size):
+            # shift result (_q)
+            _q = _q << 1
+
+            # select next bit from dividend (_a_bit)
+            _a_bit = (_a >> (_divisor_size-i-1)) & 1
+
+            # shift acum
+            _acum = (_acum << 1) | _a_bit
+
+            # if divisor is lower than acum - add 1 to the result and evaluate new acum value
+            if (_acum >= _b):
+                _q |= 1
+                _acum = _acum - _b
+            # print("End of iteration: {:d}, q={:b}, _a_bit={:b}, _acum={:b}". format(i, _q, _a_bit, _acum))
+
+        # rounding - not the most elegant solution but works
+        # for negative value, increase ABS value when remainder (_acum) > _b/2 (-1.5 -> -1; -1.6 -> -2)
+        # for positive value, increase ABS value when remainder (_acum) >= _b/2 (1.5->2)
+        if (_sign == 1 and 2*_acum > _b) or (_sign == 0 and 2*_acum >= _b):
+            _q += 1
+
+        # apply sign to the result
+        if _sign:
+            _q = ~_q + 1
+
+
+        # pack result and return
+        _res = FXPQNumber(max(self.SIGN_SIZE, y.SIGN_SIZE), self.M_SIZE, self.N_SIZE, _q)
+        return _res
+
+    def __rtruediv__(self, x):
+        # if not FXPQNumber - convert
+        _a = self._convert_arg(x)
+
+        # for div we need to switch arguments as a/b != b/a like it was in mult or add operations
+        _res = _a / self
+        return _res
+
 # a complex number in Q format
 class FXPQComplex():
     # re[Q(SIGN.M.N)], img[Q(SIGN.M.N)]

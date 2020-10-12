@@ -204,7 +204,13 @@ class FXPQNumber():
         _res = FXPQNumber(max(self.SIGN_SIZE, _y.SIGN_SIZE), max(self.M_SIZE, _y.M_SIZE)+1, max(self.N_SIZE, _y.N_SIZE), _c)
         return _res
 
-    __rsub__ = __sub__
+    def __rsub__(self, x):
+        # if not FXPQNumber - convert
+        _a = self._convert_arg(x)
+
+        # for sub we need to switch arguments as a-b != b-a
+        _res = _a - self
+        return _res
 
     def __mul__(self, y):
         # if not FXPQNumber - convert
@@ -383,6 +389,13 @@ class FXPQComplex():
 
         self.qRE.resize(sign_size, m_size, n_size)
         self.qIMG.resize(sign_size, m_size, n_size)
+
+    def conjugate(self):
+        _res_RE = self.qRE
+        _res_IMG = 0-self.qIMG
+        _res_IMG.resize(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE) # resize as sub changed format
+        _hex_value = (_res_IMG.to_hex() << _res_RE.TOTAL_SIZE) | _res_RE.to_hex()
+        return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value)
 
     def __repr__(self):
         # return "{:x} +j{:x}".format(self.qRE.to_hex(), self.qIMG.to_hex())

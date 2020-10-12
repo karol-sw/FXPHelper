@@ -61,6 +61,10 @@ Qcz = complex(0.1, 0.1)*Qcb
 print(Qcy.to_complex())
 print(Qcz.to_complex())
 
+print("Conjugate")
+Qcc = Qcz.conjugate()
+print(Qcc.to_complex())
+
 print("DIV")
 #Qa.load_float(0.065)
 #Qb.load_float(-0.25)

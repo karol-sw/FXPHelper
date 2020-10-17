@@ -56,8 +56,9 @@ class FXPQNumber():
 
     def to_Q(self):
         # returns (|S|, |M|, |N|)
+        _h = self.hex_value
         if self.SIGN_SIZE:
-            _s = (self.hex_value >> (self.TOTAL_SIZE - 1) ) & 1
+            _s = (_h >> (self.TOTAL_SIZE - 1) ) & 1
             _mask = ((1 << (self.N_SIZE + self.M_SIZE))-1)
             _h &= _mask      # get value without sign
             _h ^= _mask      # invert all bits

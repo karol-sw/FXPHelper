@@ -1,3 +1,5 @@
+# TODO: implement complex divide
+# TODO: fix problem with SUB order for complex numbers (const - FXPQComplex)
 class FXPQNumber():
     def __init__(self, SIGN_SIZE, M_SIZE, N_SIZE, hex_value=0, float_value=0):
         # Q(SIGN.M.N)
@@ -218,14 +220,14 @@ class FXPQNumber():
 
         # resize arguments to target format by multiplying MSB
         # note that we not normalize the N part for mult (like it was for add or sub)
-        _new_size = self.N_SIZE + self.M_SIZE + y.M_SIZE + y.N_SIZE # + max([self.SIGN_SIZE != 0, y.SIGN_SIZE])
+        _new_size = self.N_SIZE + self.M_SIZE + _y.M_SIZE + _y.N_SIZE # + max([self.SIGN_SIZE != 0, y.SIGN_SIZE])
 
         _a = self._scale(max(self.SIGN_SIZE, _y.SIGN_SIZE), _new_size - self.N_SIZE, self.N_SIZE)
         _b = _y._scale(max(self.SIGN_SIZE, _y.SIGN_SIZE), _new_size - _y.N_SIZE, _y.N_SIZE)
 
         # calculate result
         _c = _a * _b
-        _res = FXPQNumber(max(self.SIGN_SIZE, y.SIGN_SIZE), self.M_SIZE+y.M_SIZE, self.N_SIZE+y.N_SIZE, _c)
+        _res = FXPQNumber(max(self.SIGN_SIZE, _y.SIGN_SIZE), self.M_SIZE+_y.M_SIZE, self.N_SIZE+_y.N_SIZE, _c)
         return _res
 
     __rmul__ = __mul__
@@ -242,7 +244,6 @@ class FXPQNumber():
 
 
     def __truediv__(self, y):
-        print(y)
         # if not FXPQNumber - convert
         _b = self._convert_arg(y)
 
@@ -252,7 +253,7 @@ class FXPQNumber():
         else:
             _sign = 1
 
-        # for fxp DIV operations q=a/b instead of resizing both arguments
+        # for fxp DIV operations q=a/b instead of resizing both argumentsf
         # we need to resize only the dividend (a) to format matching
         # a=q*b
         # Assuming that we want result to be in the same format as dividend (before resizing):
@@ -275,7 +276,7 @@ class FXPQNumber():
         # now we can do the calculation (for example with long division algorithm)
         _q = 0
         _acum = 0
-        print("End of iteration: S, q={:b}, _a={:b}, _acum={:b}". format(_q, _a, _acum))
+        # print("End of iteration: S, q={:b}, _a={:b}, _acum={:b}". format(_q, _a, _acum))
         for i in range(_divisor_size):
             # shift result (_q)
             _q = _q << 1

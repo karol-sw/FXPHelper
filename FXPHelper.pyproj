@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>54ab305d-29d8-4ba6-a838-d751577a02fb</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>examples\ex2_simple_arithmetic.py</StartupFile>
+    <StartupFile>tests\test_arithmetic.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -37,10 +37,17 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="setup.py" />
+    <Compile Include="tests\test_arithmetic.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="tests\test_conversion.py">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="fxphelper\" />
     <Folder Include="examples\" />
+    <Folder Include="tests\" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

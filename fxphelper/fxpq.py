@@ -1,5 +1,3 @@
-# TODO: implement complex divide
-# TODO: fix problem with SUB order for complex numbers (const - FXPQComplex)
 class FXPQNumber():
     def __init__(self, SIGN_SIZE, M_SIZE, N_SIZE, hex_value=0, float_value=0):
         # Q(SIGN.M.N)
@@ -254,7 +252,7 @@ class FXPQNumber():
         else:
             _sign = 1
 
-        # for fxp DIV operations q=a/b instead of resizing both argumentsf
+        # for fxp DIV operations q=a/b instead of resizing both arguments
         # we need to resize only the dividend (a) to format matching
         # a=q*b
         # Assuming that we want result to be in the same format as dividend (before resizing):
@@ -436,7 +434,13 @@ class FXPQComplex():
         _hex_value = (_res_IMG.to_hex() << _res_IMG.TOTAL_SIZE) | _res_RE.to_hex()
         return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value)
 
-    __rsub__ = __sub__
+    def __rsub__(self, x):
+        # if not FXPQNumber - convert
+        _a = self._convert_arg(x)
+
+        # for sub we need to switch arguments as a-b != b-a
+        _res = _a - self
+        return _res
 
     def __mul__(self, y):
         _y = self._convert_arg(y)
@@ -454,3 +458,38 @@ class FXPQComplex():
         return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value)
 
     __rmul__ = __mul__
+
+
+    def __truediv__(self, y):
+        # (a+bi) / (c+di) = [(a+bi)*(c-di)] / [(c+di)-(c-di)] = [(a+bi)*(c-di)]/(c*c + d*d)
+        _y = self._convert_arg(y)
+
+        # calculate conjugate of divisor
+        # _y_conj = _y.conjugate()
+
+        # calculate _div = (c*c + d*d)
+        _div = _y.qRE*_y.qRE + _y.qIMG*_y.qIMG
+
+        # calculate RE and IMG part (step 1: x*_y_conj)
+        _res_RE = self.qRE*_y.qRE + self.qIMG*_y.qIMG
+        _res_IMG = self.qIMG*_y.qRE - self.qRE*_y.qIMG
+
+        # resize is needed as +/- operation increased m_size 1 bit too much
+        _res_RE.resize(_res_RE.SIGN_SIZE, _res_RE.M_SIZE-1, _res_RE.N_SIZE)
+        _res_IMG.resize(_res_IMG.SIGN_SIZE, _res_IMG.M_SIZE-1, _res_IMG.N_SIZE)
+
+        # calculate RE and IMG part (step 2: (x*_y_conj)/_div )
+        _res_RE /= _div
+        _res_IMG /= _div
+
+        # pack and return
+        _hex_value = (_res_IMG.to_hex() << _res_RE.TOTAL_SIZE) | _res_RE.to_hex()
+        return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value)
+
+    def __rtruediv__(self, x):
+        # if not FXPQNumber - convert
+        _a = self._convert_arg(x)
+
+        # for div we need to switch arguments as a/b != b/a
+        _res = _a / self
+        return _res

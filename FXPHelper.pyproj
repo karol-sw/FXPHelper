@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>54ab305d-29d8-4ba6-a838-d751577a02fb</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>tests\test_arithmetic.py</StartupFile>
+    <StartupFile>examples\ex4_matrix.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -29,6 +29,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="examples\ex3_scaling.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="examples\ex4_matrix.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="fxphelper\fxpq.py">

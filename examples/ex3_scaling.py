@@ -20,7 +20,7 @@ print("\nDecrase M")
 Q.scale(1,3,2)
 print(Q.get_format(), Q, Q.to_float())
 
-print("\nTrue rounding (>>1)")
+print("\nSymmetric rounding (>>1)")
 Qr = Q.sym_round(1)
 print(Qr.get_format(), Qr, Qr.to_float())
 # or (if we want to change number directly)

@@ -8,71 +8,83 @@ Qb = FXPQNumber(1,4,4)
 Qca = FXPQComplex(1,4,11)
 Qcb = FXPQComplex(1,4,11)
 
+# test values
 a = -15.1258
 b = 1.25
-
 ca = complex(-0.2, -0.8)
 cb = complex(10.5, -0.25)
 
+# load test values into FXP structures
 Qa.load_float(a)
 Qb.load_float(b)
 
 Qca.load_complex(ca)
 Qcb.load_complex(cb)
 
-print("Add results")
+print("\nInput values:")
+print("a: ", a)
+print("b: ", b)
+
+print("ca: ", ca)
+print("cb: ", cb)
+
+# do the arithmetics
+# ------------------------------------
+print("\nAdd results (simple):")
 y = a+b
 Qy = Qa+Qb
-print(y)
-print(Qy.to_float())
+print("Floating point result: ", y)
+print("Fixed point result:    ", Qy.to_float())
+
+print("\nAdd results (complex):")
 cy = ca+cb
 Qcy = Qca+Qcb
-print(cy)
-print(Qcy.to_complex())
+print("Floating point result: ", cy)
+print("Fixed point result:    ", Qcy.to_complex())
 
 
-print("Sub results")
+# ------------------------------------
+print("\nSub results (simple):")
 y = a-b
 Qy = Qa-Qb
-print(y)
-print(Qy.to_float())
+print("Floating point result: ", y)
+print("Fixed point result:    ", Qy.to_float())
+
+print("\nSub results (complex):")
 cy = ca-cb
 Qcy = Qca-Qcb
-print(cy)
-print(Qcy.to_complex())
+print("Floating point result: ", cy)
+print("Fixed point result:    ", Qcy.to_complex())
 
-print("Mult results")
+# ------------------------------------
+print("\nMult results (simple):")
 y = a*b
 Qy = Qa*Qb
-print(y)
-print(Qy.to_float())
+print("Floating point result: ", y)
+print("Fixed point result:    ", Qy.to_float())
+
+print("\nMult results (complex):")
 cy = ca*cb
 Qcy = Qca*Qcb
-print(cy)
-print(Qcy.to_complex())
+print("Floating point result: ", cy)
+print("Fixed point result:    ", Qcy.to_complex())
 
-print("Mult by const")
-y = a*4
-z = 0.1*b
-print(y)
-print(z)
-Qcy = Qca*4
-Qcz = complex(0.1, 0.1)*Qcb
-print(Qcy.to_complex())
-print(Qcz.to_complex())
-
-print("Conjugate")
-Qcc = Qcz.conjugate()
-print(Qcc.to_complex())
-
-print("DIV")
-#Qa.load_float(0.065)
-#Qb.load_float(-0.25)
+# ------------------------------------
+print("\nDivide results (simple)")
 y = a/b
 Qy = Qa/Qb
-print(y)
-print(Qy.to_float())
-#cy = ca/cb
-#Qcy = Qca/Qcb
-#print(cy)
-#print(Qcy.to_complex())
+print("Floating point result: ", y)
+print("Fixed point result:    ", Qy.to_float())
+
+print("\nDivide results (complex)")
+cy = ca/cb
+Qcy = Qca/Qcb
+print("Floating point result: ", cy)
+print("Fixed point result:    ", Qcy.to_complex())
+
+# ------------------------------------
+print("\nConjugate a")
+cc = ca.conjugate()
+Qcc = Qca.conjugate()
+print("Floating point result: ", cc)
+print("Fixed point result:    ", Qcc.to_complex())

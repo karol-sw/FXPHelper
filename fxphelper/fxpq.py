@@ -1,7 +1,9 @@
 class FXPQNumber():
-    def __init__(self, SIGN_SIZE, M_SIZE, N_SIZE, hex_value=0, float_value=0):
+    C_FXP_DISPLAY_FORMAT_HEX    = 0
+    C_FXP_DISPLAY_FORMAT_FLOAT  = 1
+    C_FXP_DISPLAY_FORMAT_FULL   = 2
+    def __init__(self, SIGN_SIZE, M_SIZE, N_SIZE, hex_value=0, float_value=0, display_format=C_FXP_DISPLAY_FORMAT_HEX):
         # Q(SIGN.M.N)
-        # TODO: add configuration describing default display method (hex/float/combined)
         if SIGN_SIZE:
             self.SIGN_SIZE = 1
         else:
@@ -17,6 +19,9 @@ class FXPQNumber():
             self.load_hex(hex_value)
         elif float_value:
             self.load_float(float_value)
+
+        # set default display format
+        self.display_format = display_format
 
     def load_hex(self, h):
         _mask = (1 << self.TOTAL_SIZE)-1
@@ -131,7 +136,7 @@ class FXPQNumber():
         Symmetric round operation is used to increase or decrease number's friction precision
         """
         _hex_value = self._scale(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE-round_factor, True)
-        _res = FXPQNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE-round_factor, _hex_value)
+        _res = FXPQNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE-round_factor, _hex_value, display_format=self.display_format)
         return _res
 
     def scale(self, sign_size, m_size, n_size, round=False):
@@ -161,16 +166,30 @@ class FXPQNumber():
     # a little hack is here - by default __str__ in numpy for unknown types displays
     # a type - so we will override a type return value to get a real number value
     def __repr__(self):
-        return str(hex(self.hex_value))
+        if self.display_format==self.C_FXP_DISPLAY_FORMAT_HEX:
+            _disp = hex(self.hex_value)
+        elif self.display_format==self.C_FXP_DISPLAY_FORMAT_FLOAT:
+            _disp = self.to_float()
+        else:
+            _disp = "Q{:s} 0x{:x} {:f}".format(str(self.get_format()), self.to_hex(), self.to_float())
+
+        return str(_disp)
 
     def __str__(self):
-        return str(hex(self.hex_value))
+        if self.display_format==self.C_FXP_DISPLAY_FORMAT_HEX:
+            _disp = hex(self.hex_value)
+        elif self.display_format==self.C_FXP_DISPLAY_FORMAT_FLOAT:
+            _disp = self.to_float()
+        else:
+            _disp = "Q{:s} 0x{:x} {:f}".format(str(self.get_format()), self.to_hex(), self.to_float())
+
+        return str(_disp)
 
     def _convert_arg(self, y):
         # for internal purpose only
         # check argument type and convert to FXP if needed
         if isinstance(y, (int, float)):
-            _y = FXPQNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE, float_value=y)
+            _y = FXPQNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE, float_value=y, display_format=self.display_format)
         else:
             _y = y
 
@@ -187,7 +206,7 @@ class FXPQNumber():
         # calculate result
         _c = _a + _b
         # _c &= (1 << (self.M_SIZE + self.N_SIZE + self.SIGN_SIZE + 1))-1 # mask is already in load_hex - no need here
-        _res = FXPQNumber(max(self.SIGN_SIZE, _y.SIGN_SIZE), max(self.M_SIZE, _y.M_SIZE)+1, max(self.N_SIZE, _y.N_SIZE), _c)
+        _res = FXPQNumber(max(self.SIGN_SIZE, _y.SIGN_SIZE), max(self.M_SIZE, _y.M_SIZE)+1, max(self.N_SIZE, _y.N_SIZE), _c, display_format=self.display_format)
         return _res
 
     __radd__ = __add__
@@ -202,7 +221,7 @@ class FXPQNumber():
 
         # calculate result
         _c = _a - _b
-        _res = FXPQNumber(max(self.SIGN_SIZE, _y.SIGN_SIZE), max(self.M_SIZE, _y.M_SIZE)+1, max(self.N_SIZE, _y.N_SIZE), _c)
+        _res = FXPQNumber(max(self.SIGN_SIZE, _y.SIGN_SIZE), max(self.M_SIZE, _y.M_SIZE)+1, max(self.N_SIZE, _y.N_SIZE), _c, display_format=self.display_format)
         return _res
 
     def __rsub__(self, x):
@@ -226,7 +245,7 @@ class FXPQNumber():
 
         # calculate result
         _c = _a * _b
-        _res = FXPQNumber(max(self.SIGN_SIZE, _y.SIGN_SIZE), self.M_SIZE+_y.M_SIZE, self.N_SIZE+_y.N_SIZE, _c)
+        _res = FXPQNumber(max(self.SIGN_SIZE, _y.SIGN_SIZE), self.M_SIZE+_y.M_SIZE, self.N_SIZE+_y.N_SIZE, _c, display_format=self.display_format)
         return _res
 
     __rmul__ = __mul__
@@ -238,7 +257,7 @@ class FXPQNumber():
         else:
             _h = self.hex_value
 
-        _res = FXPQNumber(0, self.M_SIZE, self.N_SIZE, _h)
+        _res = FXPQNumber(0, self.M_SIZE, self.N_SIZE, _h, display_format=self.display_format)
         return _res
 
 
@@ -304,7 +323,7 @@ class FXPQNumber():
 
 
         # pack result and return
-        _res = FXPQNumber(max(self.SIGN_SIZE, y.SIGN_SIZE), self.M_SIZE, self.N_SIZE, _q)
+        _res = FXPQNumber(max(self.SIGN_SIZE, y.SIGN_SIZE), self.M_SIZE, self.N_SIZE, _q, display_format=self.display_format)
         return _res
 
     def __rtruediv__(self, x):
@@ -317,8 +336,11 @@ class FXPQNumber():
 
 # a complex number in Q format
 class FXPQComplex():
+    C_FXP_DISPLAY_FORMAT_HEX        = 0
+    C_FXP_DISPLAY_FORMAT_COMPLEX    = 1
+    C_FXP_DISPLAY_FORMAT_FULL       = 2
     # re[Q(SIGN.M.N)], img[Q(SIGN.M.N)]
-    def __init__(self, SIGN_SIZE, M_SIZE, N_SIZE, hex_value=0, complex_value=complex(0, 0)):
+    def __init__(self, SIGN_SIZE, M_SIZE, N_SIZE, hex_value=0, complex_value=complex(0, 0), display_format=C_FXP_DISPLAY_FORMAT_COMPLEX):
         self.TOTAL_SIZE = SIGN_SIZE + M_SIZE + N_SIZE
 
         self.qRE = FXPQNumber(SIGN_SIZE, M_SIZE, N_SIZE)
@@ -328,6 +350,9 @@ class FXPQComplex():
             self.load_hex(hex_value)
         elif complex_value:
             self.load_complex(complex_value)
+
+        # set default display format
+        self.display_format = display_format
 
     def load_hex(self, h):
         _mask = (1 << self.TOTAL_SIZE) - 1
@@ -361,7 +386,7 @@ class FXPQComplex():
         _re = self.qRE.sym_round(round_factor)
         _img = self.qIMG.sym_round(round_factor)
         _hex_value = (_img.to_hex() << _img.TOTAL_SIZE) | _re.to_hex()
-        return FXPQComplex(_re.SIGN_SIZE, _re.M_SIZE, _re.N_SIZE, _hex_value)
+        return FXPQComplex(_re.SIGN_SIZE, _re.M_SIZE, _re.N_SIZE, _hex_value, display_format=self.display_format)
 
     def scale(self, sign_size, m_size, n_size, round=False):
         """
@@ -395,22 +420,36 @@ class FXPQComplex():
         _res_IMG = 0-self.qIMG
         _res_IMG.resize(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE) # resize as sub changed format
         _hex_value = (_res_IMG.to_hex() << _res_RE.TOTAL_SIZE) | _res_RE.to_hex()
-        return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value)
+        return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value, display_format=self.display_format)
 
     def __repr__(self):
-        # return "{:x} +j{:x}".format(self.qRE.to_hex(), self.qIMG.to_hex())
-        return str(complex(self.qRE.to_float(), self.qIMG.to_float()))
+        if self.display_format==self.C_FXP_DISPLAY_FORMAT_HEX:
+            _disp = "0x{:x} +j0x{:x}".format(self.qRE.to_hex(), self.qIMG.to_hex())
+        elif self.display_format==self.C_FXP_DISPLAY_FORMAT_COMPLEX:
+            _disp = str(self.to_complex())
+        else:
+            _disp = "Q{:s} (0x{:x} +j0x{:x}) {:s}".format(str(self.get_format()), self.qRE.to_hex(), self.qIMG.to_hex(), str(self.to_complex()))
+
+        return str(_disp)
+
 
     def __str__(self):
-        return str(complex(self.qRE.to_float(), self.qIMG.to_float()))
+        if self.display_format==self.C_FXP_DISPLAY_FORMAT_HEX:
+            _disp = "0x{:x} +j0x{:x}".format(self.qRE.to_hex(), self.qIMG.to_hex())
+        elif self.display_format==self.C_FXP_DISPLAY_FORMAT_COMPLEX:
+            _disp = str(self.to_complex())
+        else:
+            _disp = "Q{:s} (0x{:x} +j0x{:x}) {:s}".format(str(self.get_format()), self.qRE.to_hex(), self.qIMG.to_hex(), str(self.to_complex()))
+
+        return str(_disp)
 
     def _convert_arg(self, y):
         # for internal purpose only
         # check argument type and convert to FXP if needed
         if isinstance(y, (complex)):
-            _y = FXPQComplex (self.qRE.SIGN_SIZE, self.qRE.M_SIZE, self.qRE.N_SIZE, complex_value=y)
+            _y = FXPQComplex (self.qRE.SIGN_SIZE, self.qRE.M_SIZE, self.qRE.N_SIZE, complex_value=y, display_format=self.display_format)
         elif isinstance(y, (int, float)):
-            _y = FXPQComplex (self.qRE.SIGN_SIZE, self.qRE.M_SIZE, self.qRE.N_SIZE, complex_value=complex(y, 0))
+            _y = FXPQComplex (self.qRE.SIGN_SIZE, self.qRE.M_SIZE, self.qRE.N_SIZE, complex_value=complex(y, 0), display_format=self.display_format)
         else:
             _y = y
 
@@ -422,7 +461,7 @@ class FXPQComplex():
         _res_RE = self.qRE + _y.qRE
         _res_IMG = self.qIMG + _y.qIMG
         _hex_value = (_res_IMG.to_hex() << _res_IMG.TOTAL_SIZE) | _res_RE.to_hex()
-        return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value)
+        return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value, display_format=self.display_format)
 
     __radd__ = __add__
 
@@ -432,7 +471,7 @@ class FXPQComplex():
         _res_RE = self.qRE - _y.qRE
         _res_IMG = self.qIMG - _y.qIMG
         _hex_value = (_res_IMG.to_hex() << _res_IMG.TOTAL_SIZE) | _res_RE.to_hex()
-        return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value)
+        return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value, display_format=self.display_format)
 
     def __rsub__(self, x):
         # if not FXPQNumber - convert
@@ -455,7 +494,7 @@ class FXPQComplex():
 
         # pack and return
         _hex_value = (_res_IMG.to_hex() << _res_RE.TOTAL_SIZE) | _res_RE.to_hex()
-        return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value)
+        return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value, display_format=self.display_format)
 
     __rmul__ = __mul__
 
@@ -463,9 +502,6 @@ class FXPQComplex():
     def __truediv__(self, y):
         # (a+bi) / (c+di) = [(a+bi)*(c-di)] / [(c+di)-(c-di)] = [(a+bi)*(c-di)]/(c*c + d*d)
         _y = self._convert_arg(y)
-
-        # calculate conjugate of divisor
-        # _y_conj = _y.conjugate()
 
         # calculate _div = (c*c + d*d)
         _div = _y.qRE*_y.qRE + _y.qIMG*_y.qIMG
@@ -484,7 +520,7 @@ class FXPQComplex():
 
         # pack and return
         _hex_value = (_res_IMG.to_hex() << _res_RE.TOTAL_SIZE) | _res_RE.to_hex()
-        return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value)
+        return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value, display_format=self.display_format)
 
     def __rtruediv__(self, x):
         # if not FXPQNumber - convert

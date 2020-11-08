@@ -1,4 +1,24 @@
 class FXPQNumber():
+    """
+    Class representing a fixed point number in Q(s, m, n) format.
+
+    Args:
+        SIGN_SIZE (int) : Signed number indicator (0 - unsigned, 1 - signed).
+        M_SIZE (int) : Number of bits to store integer portion of a number.
+        N_SIZE (int) : Number of bits to store fractional portion of a number.
+        hex_value (int, optional) : Raw value of represented number to load. Defaults to 0.
+        float_value (float, optional) : Decimal value to convert (to raw value) and load. Defaults to 0.
+        display_format (enum, optional) : Default display format for __str__ and __repr__ methods. Possible values: C_FXP_DISPLAY_FORMAT_HEX, C_FXP_DISPLAY_FORMAT_FLOAT, C_FXP_DISPLAY_FORMAT_FULL. Defaults to C_FXP_DISPLAY_FORMAT_HEX.
+
+    Attributes:
+        SIGN_SIZE (int) : Signed number indicator (0 - unsigned, 1 - signed).
+        M_SIZE (int) : Number of bits to store integer portion of a number.
+        N_SIZE (int) : Number of bits to store fractional portion of a number.
+        TOTAL_SIZE (int) : Number of bits to store whole number (SIGN_SIZE + M_SIZE + N_SIZE).
+        hex_value (int) : Raw value of represented number.
+        sign (int) : Value of sign bit.
+        display_format (enum) : Selected display format.
+    """
     C_FXP_DISPLAY_FORMAT_HEX    = 0
     C_FXP_DISPLAY_FORMAT_FLOAT  = 1
     C_FXP_DISPLAY_FORMAT_FULL   = 2
@@ -24,6 +44,12 @@ class FXPQNumber():
         self.display_format = display_format
 
     def load_hex(self, h):
+        """
+        Load raw hex value.
+
+        Args:
+            h (int): Value to load.
+        """
         _mask = (1 << self.TOTAL_SIZE)-1
         # truncate MSbits - this will also convert to unsigned hex format
         # (so python will no longer display '-' in hex print)
@@ -36,15 +62,33 @@ class FXPQNumber():
             self.sign = 0
 
     def load_float(self, value):
+        """
+        Load float value.
+
+        Args:
+            value (float): Value to load.
+        """
         # convert to hex value
         _tmp = int(round(value * (1 << self.N_SIZE)))
+        # load
         self.load_hex(_tmp)
 
     def to_hex(self):
+        """
+        Return a raw hex value.
+
+        Returns:
+            Raw hex value of current number.
+        """
         return self.hex_value
 
     def to_float(self):
-        # _res = self.sign*(self.m + self.n / (1 << self.N_SIZE))
+        """
+        Convert to float.
+
+        Returns:
+            Float value of current number.
+        """
         if self.sign == 1:
             _mask = (1 << self.TOTAL_SIZE) - 1
             _res = (self.hex_value ^ _mask) + 1
@@ -58,7 +102,12 @@ class FXPQNumber():
         return _res
 
     def to_Q(self):
-        # returns (|S|, |M|, |N|)
+        """
+        Convert to Q(s,m,n) format.
+
+        Returns:
+            Returns a tuple: (|S|, |M|, |N|), where: S-sign, M-integral part, N-fractional part)
+        """
         _h = self.hex_value
         if self.SIGN_SIZE:
             _s = (_h >> (self.TOTAL_SIZE - 1) ) & 1
@@ -82,6 +131,12 @@ class FXPQNumber():
         return (_s, _m, _n)
 
     def get_format(self):
+        """
+        Get FXP Q format.
+
+        Returns:
+            Returns a tuple: (sign size, m-part size, n-part size).
+        """
         return (self.SIGN_SIZE, self.M_SIZE, self.N_SIZE)
 
     def _scale(self, sign_size, m_size, n_size, round=False):
@@ -133,7 +188,13 @@ class FXPQNumber():
 
     def sym_round(self, round_factor):
         """
-        Symmetric round operation is used to increase or decrease number's friction precision
+        Perform a symmetric round operation (used to increase or decrease number's friction precision).
+
+        Args:
+            round_factor (int): Number of bits to cut (if >0) or extend (if <0) the friction part.
+
+        Returns:
+            Returns a FXPQNumber after performing symmetric round operation.
         """
         _hex_value = self._scale(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE-round_factor, True)
         _res = FXPQNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE-round_factor, _hex_value, display_format=self.display_format)
@@ -142,6 +203,15 @@ class FXPQNumber():
     def scale(self, sign_size, m_size, n_size, round=False):
         """
         Scale current number to different Q format without changing its (float) value.
+
+        Args:
+            sign_size (int): New size of the sign part.
+            m_size (int): New size of the integral part.
+            n_size (int): New size of the fractional part.
+            round (bool, optional) : Select if rounding should be enabled if number is scaled down (false by default).
+
+        Returns:
+            Returns a FXPQNumber after performing scaling operation.
         """
         _hex_value = self._scale(sign_size, m_size, n_size, round)
         self.SIGN_SIZE = sign_size
@@ -152,10 +222,16 @@ class FXPQNumber():
 
     def resize(self, sign_size, m_size, n_size):
         """
+        Cast current raw value to a different Q format.
         Resize function may be used when we want to interpret current hex as it was in different Q format
         Typical usecase: A Q(1.1.2) + B Q(1.1.2) = C Q(1.1.2) - adding with no overflow
         C = A+B             # C will be in format Q(1.2.2)
         C.resize(1,1,2)     # resize to format Q(1.1.2)
+
+        Args:
+            sign_size (int): New size of the sign part.
+            m_size (int): New size of the integral part.
+            n_size (int): New size of the fractional part.
         """
         self.SIGN_SIZE = sign_size
         self.M_SIZE=m_size
@@ -196,6 +272,15 @@ class FXPQNumber():
         return _y
 
     def __add__(self, y):
+        """
+        Override the '+' operator.
+
+        Args:
+            y (FXPQNumber or float) : Right side value of the expression
+
+        Returns:
+            Returns self + y value in FXPQNumber format.
+        """
         # if not FXPQNumber - convert
         _y = self._convert_arg(y)
 
@@ -212,6 +297,16 @@ class FXPQNumber():
     __radd__ = __add__
 
     def __sub__(self, y):
+        """
+        Override the '-' operator.
+
+        Args:
+            y (FXPQNumber or float) : Right side value of the expression
+
+        Returns:
+            Returns self - y value in FXPQNumber format.
+        """
+
         # if not FXPQNumber - convert
         _y = self._convert_arg(y)
 
@@ -233,11 +328,20 @@ class FXPQNumber():
         return _res
 
     def __mul__(self, y):
+        """
+        Override the '*' operator.
+
+        Args:
+            y (FXPQNumber or float) : Right side value of the expression
+
+        Returns:
+            Returns self * y value in FXPQNumber format.
+        """
         # if not FXPQNumber - convert
         _y = self._convert_arg(y)
 
         # resize arguments to target format by multiplying MSB
-        # note that we not normalize the N part for mult (like it was for add or sub)
+        # note that we do not normalize the N part for mult (like it was for add or sub)
         _new_size = self.N_SIZE + self.M_SIZE + _y.M_SIZE + _y.N_SIZE # + max([self.SIGN_SIZE != 0, y.SIGN_SIZE])
 
         _a = self._scale(max(self.SIGN_SIZE, _y.SIGN_SIZE), _new_size - self.N_SIZE, self.N_SIZE)
@@ -251,6 +355,12 @@ class FXPQNumber():
     __rmul__ = __mul__
 
     def __abs__(self):
+        """
+        Override the 'abs' operator.
+
+        Returns:
+            Returns abs(self) value in FXPQNumber format.
+        """
         # returns absolute value
         if self.sign:
             _h = ~self.hex_value + 1
@@ -262,6 +372,15 @@ class FXPQNumber():
 
 
     def __truediv__(self, y):
+        """
+        Override the '/' operator.
+
+        Args:
+            y (FXPQNumber or float) : Right side value of the expression
+
+        Returns:
+            Returns self / y value in FXPQNumber format.
+        """
         # if not FXPQNumber - convert
         _b = self._convert_arg(y)
 
@@ -334,12 +453,27 @@ class FXPQNumber():
         _res = _a / self
         return _res
 
-# a complex number in Q format
 class FXPQComplex():
+    """
+    Class representing a complex fixed point number in Q(s, m, n) format.
+
+    Args:
+        SIGN_SIZE (int) : Signed number indicator (0 - unsigned, 1 - signed).
+        M_SIZE (int) : Number of bits to store integer portion of a number.
+        N_SIZE (int) : Number of bits to store fractional portion of a number.
+        hex_value (int, optional) : Raw value of represented number to load. Assembled from imag-part (MSB) and re-part (LSB) combined together. Defaults to 0.
+        complex_value (comlex, optional) : Complex value to convert (to raw value) and load. Defaults to 0.
+        display_format (enum, optional) : Default display format for __str__ and __repr__ methods. Possible values: C_FXP_DISPLAY_FORMAT_HEX, C_FXP_DISPLAY_FORMAT_COMPLEX, C_FXP_DISPLAY_FORMAT_FULL. Defaults to C_FXP_DISPLAY_FORMAT_COMPLEX.
+
+    Attributes:
+        TOTAL_SIZE (int) : Number of bits to store whole number (SIGN_SIZE + M_SIZE + N_SIZE).
+        qRE (FXPQNumber) : re-part of the complex number (stored in FXPQNumber format).
+        qIMG (FXPQNumber) : imag-part of the complex number (stored in FXPQNumber format).
+        display_format (enum) : Selected display format.
+    """
     C_FXP_DISPLAY_FORMAT_HEX        = 0
     C_FXP_DISPLAY_FORMAT_COMPLEX    = 1
     C_FXP_DISPLAY_FORMAT_FULL       = 2
-    # re[Q(SIGN.M.N)], img[Q(SIGN.M.N)]
     def __init__(self, SIGN_SIZE, M_SIZE, N_SIZE, hex_value=0, complex_value=complex(0, 0), display_format=C_FXP_DISPLAY_FORMAT_COMPLEX):
         self.TOTAL_SIZE = SIGN_SIZE + M_SIZE + N_SIZE
 
@@ -355,6 +489,12 @@ class FXPQComplex():
         self.display_format = display_format
 
     def load_hex(self, h):
+        """
+        Extract re-part and imag-part and load raw hex values.
+
+        Args:
+            h (int): Value to load.
+        """
         _mask = (1 << self.TOTAL_SIZE) - 1
         _re = h & _mask
         _img = (h >> self.TOTAL_SIZE) & _mask
@@ -362,26 +502,57 @@ class FXPQComplex():
         self.qIMG.load_hex(_img)
 
     def load_complex(self, f):
+        """
+        Load qRE and qIMG with given complex value.
+
+        Args:
+            value (complex): Value to load.
+        """
         self.qRE.load_float(f.real)
         self.qIMG.load_float(f.imag)
 
     def to_hex(self):
+        """
+        Return a raw hex value (combined re and imag parts).
+
+        Returns:
+            Raw hex value of current number.
+        """
         _tmp = 0
         _tmp |= self.qRE.to_hex()
         _tmp |= self.qIMG.to_hex() << self.TOTAL_SIZE
         return _tmp
 
     def to_complex(self):
+        """
+        Convert to complex number.
+
+        Returns:
+            Comlex value of current number.
+        """
         _re = self.qRE.to_float()
         _img = self.qIMG.to_float()
         return complex(_re, _img)
 
     def get_format(self):
+        """
+        Get FXP Q format. Same Q format is used for both re-part and img-part.
+
+        Returns:
+            Returns a tuple: (sign size, m-part size, n-part size).
+        """
         return self.qRE.get_format()
 
     def sym_round(self, round_factor):
         """
-        Symmetric round operation is used to increase or decrease number's friction precision
+        Perform a symmetric round operation (used to increase or decrease number's friction precision).
+        Operation is performed separately on re-part and imag-part.
+
+        Args:
+            round_factor (int): Number of bits to cut (if >0) or extend (if <0) the friction part.
+
+        Returns:
+            Returns a FXPQComplex after performing symmetric round operation.
         """
         _re = self.qRE.sym_round(round_factor)
         _img = self.qIMG.sym_round(round_factor)
@@ -390,7 +561,16 @@ class FXPQComplex():
 
     def scale(self, sign_size, m_size, n_size, round=False):
         """
-        Scale current number to different Q format without changing its (float) value.
+        Scale current number to different Q format without changing its (complex) value.
+
+        Args:
+            sign_size (int): New size of the sign part.
+            m_size (int): New size of the integral part.
+            n_size (int): New size of the fractional part.
+            round (bool, optional) : Select if rounding should be enabled if number is scaled down (false by default).
+
+        Returns:
+            Returns a FXPQComplex after performing scaling operation.
         """
         self.SIGN_SIZE = sign_size
         self.M_SIZE=m_size
@@ -402,10 +582,12 @@ class FXPQComplex():
 
     def resize(self, sign_size, m_size, n_size):
         """
-        Resize function may be used when we want to interpret current hex as it was in different Q format
-        Typical usecase: A Q(1.1.2) + B Q(1.1.2) = C Q(1.1.2) - adding with no overflow
-        C = A+B             # C will be in format Q(1.2.2)
-        C.resize(1,1,2)     # resize to format Q(1.1.2)
+        Cast current raw value to a different Q format.
+
+        Args:
+            sign_size (int): New size of the sign part.
+            m_size (int): New size of the integral part.
+            n_size (int): New size of the fractional part.
         """
         self.SIGN_SIZE = sign_size
         self.M_SIZE=m_size
@@ -416,6 +598,12 @@ class FXPQComplex():
         self.qIMG.resize(sign_size, m_size, n_size)
 
     def conjugate(self):
+        """
+        Calculate conjugate value.
+
+        Returns:
+            Returns (self.qRE - self.qIMG) in FXPQComplex format.
+        """
         _res_RE = self.qRE
         _res_IMG = 0-self.qIMG
         _res_IMG.resize(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE) # resize as sub changed format
@@ -456,6 +644,15 @@ class FXPQComplex():
         return _y
 
     def __add__(self, y):
+        """
+        Override the '+' operator.
+
+        Args:
+            y (FXPQComplex or float) : Right side value of the expression
+
+        Returns:
+            Returns (self.qRE + y.qRE) + j(self.qIMG + y.qIMG) value in FXPQComplex format.
+        """
         _y = self._convert_arg(y)
 
         _res_RE = self.qRE + _y.qRE
@@ -466,6 +663,15 @@ class FXPQComplex():
     __radd__ = __add__
 
     def __sub__(self, y):
+        """
+        Override the '-' operator.
+
+        Args:
+            y (FXPQComplex or float) : Right side value of the expression
+
+        Returns:
+            Returns (self.qRE - y.qRE) + j(self.qIMG - y.qIMG) value in FXPQComplex format.
+        """
         _y = self._convert_arg(y)
 
         _res_RE = self.qRE - _y.qRE
@@ -482,6 +688,15 @@ class FXPQComplex():
         return _res
 
     def __mul__(self, y):
+        """
+        Override the '*' operator.
+
+        Args:
+            y (FXPQComplex or float) : Right side value of the expression
+
+        Returns:
+            Returns (self.qRE*y.qRE - self.qIMG*y.qIMG) + j(self.qRE*y.qIMG + self.qIMG*y.qRE) value in FXPQComplex format.
+        """
         _y = self._convert_arg(y)
 
         # calculate RE and IMG part
@@ -500,6 +715,15 @@ class FXPQComplex():
 
 
     def __truediv__(self, y):
+        """
+        Override the '/' operator.
+
+        Args:
+            y (FXPQComplex or float) : Right side value of the expression
+
+        Returns:
+            Returns (self / y) value in FXPQComplex format.
+        """
         # (a+bi) / (c+di) = [(a+bi)*(c-di)] / [(c+di)-(c-di)] = [(a+bi)*(c-di)]/(c*c + d*d)
         _y = self._convert_arg(y)
 

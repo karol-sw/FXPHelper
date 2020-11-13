@@ -469,11 +469,12 @@ class FXPQComplex():
         TOTAL_SIZE (int) : Number of bits to store whole number (SIGN_SIZE + M_SIZE + N_SIZE).
         qRE (FXPQNumber) : re-part of the complex number (stored in FXPQNumber format).
         qIMG (FXPQNumber) : imag-part of the complex number (stored in FXPQNumber format).
-        display_format (enum) : Selected display format.
+        display_format (enum) : Selected display format (C_FXP_DISPLAY_FORMAT_HEX, C_FXP_DISPLAY_FORMAT_COMPLEX, C_FXP_DISPLAY_FORMAT_FULL, C_FXP_DISPLAY_FORMAT_RAW).
     """
     C_FXP_DISPLAY_FORMAT_HEX        = 0
     C_FXP_DISPLAY_FORMAT_COMPLEX    = 1
     C_FXP_DISPLAY_FORMAT_FULL       = 2
+    C_FXP_DISPLAY_FORMAT_RAW        = 3
     def __init__(self, SIGN_SIZE, M_SIZE, N_SIZE, hex_value=0, complex_value=complex(0, 0), display_format=C_FXP_DISPLAY_FORMAT_COMPLEX):
         self.TOTAL_SIZE = SIGN_SIZE + M_SIZE + N_SIZE
 
@@ -615,6 +616,8 @@ class FXPQComplex():
             _disp = "0x{:x} +j0x{:x}".format(self.qRE.to_hex(), self.qIMG.to_hex())
         elif self.display_format==self.C_FXP_DISPLAY_FORMAT_COMPLEX:
             _disp = str(self.to_complex())
+        elif self.display_format==self.C_FXP_DISPLAY_FORMAT_RAW:
+            _disp = str("0x{:x}".format(self.to_hex()))
         else:
             _disp = "Q{:s} (0x{:x} +j0x{:x}) {:s}".format(str(self.get_format()), self.qRE.to_hex(), self.qIMG.to_hex(), str(self.to_complex()))
 
@@ -626,6 +629,8 @@ class FXPQComplex():
             _disp = "0x{:x} +j0x{:x}".format(self.qRE.to_hex(), self.qIMG.to_hex())
         elif self.display_format==self.C_FXP_DISPLAY_FORMAT_COMPLEX:
             _disp = str(self.to_complex())
+        elif self.display_format==self.C_FXP_DISPLAY_FORMAT_RAW:
+            _disp = str("0x{:x}".format(self.to_hex()))
         else:
             _disp = "Q{:s} (0x{:x} +j0x{:x}) {:s}".format(str(self.get_format()), self.qRE.to_hex(), self.qIMG.to_hex(), str(self.to_complex()))
 

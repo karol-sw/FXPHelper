@@ -1,3 +1,5 @@
+import copy
+
 class FXPQNumber():
     """
     Class representing a fixed point number in Q(s, m, n) format.
@@ -22,7 +24,7 @@ class FXPQNumber():
     C_FXP_DISPLAY_FORMAT_HEX    = 0
     C_FXP_DISPLAY_FORMAT_FLOAT  = 1
     C_FXP_DISPLAY_FORMAT_FULL   = 2
-    def __init__(self, SIGN_SIZE, M_SIZE, N_SIZE, hex_value=0, float_value=0, display_format=C_FXP_DISPLAY_FORMAT_HEX):
+    def __init__(self, SIGN_SIZE, M_SIZE, N_SIZE, hex_value=0, float_value=0, display_format=C_FXP_DISPLAY_FORMAT_FULL):
         # Q(SIGN.M.N)
         if SIGN_SIZE:
             self.SIGN_SIZE = 1
@@ -98,6 +100,24 @@ class FXPQNumber():
             _res = self.hex_value
 
         _res /= (1 << self.N_SIZE)
+        _res *= _sign
+        return _res
+
+    def to_dec(self):
+        """
+        Convert to raw decimal.
+
+        Returns:
+            Float value of current number.
+        """
+        if self.sign == 1:
+            _mask = (1 << self.TOTAL_SIZE) - 1
+            _res = (self.hex_value ^ _mask) + 1
+            _sign = -1
+        else:
+            _sign = 1
+            _res = self.hex_value
+
         _res *= _sign
         return _res
 
@@ -200,6 +220,45 @@ class FXPQNumber():
         _res = FXPQNumber(self.SIGN_SIZE, self.M_SIZE, self.N_SIZE-round_factor, _hex_value, display_format=self.display_format)
         return _res
 
+    def saturate(self, size):
+        """
+        Perform a saturation to specific bit size operation.
+
+        Args:
+            size (int): Number of bits for saturation (int part should be cut).
+
+        Returns:
+            Returns a FXPQNumber after performing saturation.
+        """
+        #_max_value = (1 << (size-1))-1
+        #_min_value = -(1 << (size-1))
+        if self.SIGN_SIZE == 0:
+            _max_value = (1 << size)-1
+            _min_value = 0
+        else:
+            _max_value = (1 << (size-1))-1
+            _min_value = -(1 << (size-1))
+        _mask = (1 << size)-1
+        _dec = self.to_dec()
+
+        if _dec < _min_value:
+            _hex_value = _min_value & _mask
+        elif _dec > _max_value:
+            _hex_value = _max_value & _mask
+        else:
+            _hex_value = self.hex_value & _mask
+        # print(f"min: {_min_value}, max: {_max_value}, mask: {_mask}, dec: {_dec}, hex: {hex(self.hex_value)}, res: {hex(_hex_value)}")
+
+        # if self.sign == 0:
+        #     _mask = (1 << (size-1))-1
+        #     if _max_value < self.hex_value:
+        #         _hex_value = (self.sign << (size-1)) | (self.hex_value & _mask)
+        #     else:
+        #         _hex_value = self.hex_value
+
+        _res = FXPQNumber(self.SIGN_SIZE, size-self.SIGN_SIZE-self.N_SIZE, self.N_SIZE, _hex_value, display_format=self.display_format)
+        return _res
+
     def scale(self, sign_size, m_size, n_size, round=False):
         """
         Scale current number to different Q format without changing its (float) value.
@@ -220,7 +279,7 @@ class FXPQNumber():
         self.TOTAL_SIZE = sign_size + m_size + n_size
         self.load_hex(_hex_value)
 
-    def resize(self, sign_size, m_size, n_size):
+    def resize(self, sign_size, m_size, n_size, signed=True):
         """
         Cast current raw value to a different Q format.
         Resize function may be used when we want to interpret current hex as it was in different Q format
@@ -233,11 +292,18 @@ class FXPQNumber():
             m_size (int): New size of the integral part.
             n_size (int): New size of the fractional part.
         """
+        if signed and self.sign != 0 and self.TOTAL_SIZE < (sign_size + m_size + n_size):
+            _signed_mask = (sign_size + m_size + n_size) - self.TOTAL_SIZE
+            _signed_mask = ((1 << _signed_mask) - 1) << self.TOTAL_SIZE
+            # print(f"_signed_mask: 0x{hex(_signed_mask)}")
+        else:
+            _signed_mask = 0
+
         self.SIGN_SIZE = sign_size
         self.M_SIZE=m_size
         self.N_SIZE=n_size
         self.TOTAL_SIZE = sign_size + m_size + n_size
-        self.load_hex(self.hex_value)
+        self.load_hex(self.hex_value | _signed_mask)
 
     # a little hack is here - by default __str__ in numpy for unknown types displays
     # a type - so we will override a type return value to get a real number value
@@ -260,6 +326,9 @@ class FXPQNumber():
             _disp = "Q{:s} 0x{:x} {:f}".format(str(self.get_format()), self.to_hex(), self.to_float())
 
         return str(_disp)
+
+    def __index__(self):
+        return self.hex_value
 
     def _convert_arg(self, y):
         # for internal purpose only
@@ -342,14 +411,15 @@ class FXPQNumber():
 
         # resize arguments to target format by multiplying MSB
         # note that we do not normalize the N part for mult (like it was for add or sub)
-        _new_size = self.N_SIZE + self.M_SIZE + _y.M_SIZE + _y.N_SIZE # + max([self.SIGN_SIZE != 0, y.SIGN_SIZE])
+        _new_size = self.N_SIZE + self.M_SIZE + _y.M_SIZE + _y.N_SIZE + self.SIGN_SIZE
 
         _a = self._scale(max(self.SIGN_SIZE, _y.SIGN_SIZE), _new_size - self.N_SIZE, self.N_SIZE)
         _b = _y._scale(max(self.SIGN_SIZE, _y.SIGN_SIZE), _new_size - _y.N_SIZE, _y.N_SIZE)
 
         # calculate result
         _c = _a * _b
-        _res = FXPQNumber(max(self.SIGN_SIZE, _y.SIGN_SIZE), self.M_SIZE+_y.M_SIZE, self.N_SIZE+_y.N_SIZE, _c, display_format=self.display_format)
+        _res = FXPQNumber(max(self.SIGN_SIZE, _y.SIGN_SIZE), self.M_SIZE+_y.M_SIZE+self.SIGN_SIZE, self.N_SIZE+_y.N_SIZE, _c, display_format=self.display_format)
+        # _res = FXPQNumber(max(self.SIGN_SIZE, _y.SIGN_SIZE), self.M_SIZE+_y.M_SIZE, self.N_SIZE+_y.N_SIZE, _c, display_format=self.display_format)
         return _res
 
     __rmul__ = __mul__
@@ -463,7 +533,7 @@ class FXPQComplex():
         N_SIZE (int) : Number of bits to store fractional portion of a number.
         hex_value (int, optional) : Raw value of represented number to load. Assembled from imag-part (MSB) and re-part (LSB) combined together. Defaults to 0.
         complex_value (comlex, optional) : Complex value to convert (to raw value) and load. Defaults to 0.
-        display_format (enum, optional) : Default display format for __str__ and __repr__ methods. Possible values: C_FXP_DISPLAY_FORMAT_HEX, C_FXP_DISPLAY_FORMAT_COMPLEX, C_FXP_DISPLAY_FORMAT_FULL. Defaults to C_FXP_DISPLAY_FORMAT_COMPLEX.
+        display_format (enum, optional) : Default display format for __str__ and __repr__ methods. Possible values: C_FXP_DISPLAY_FORMAT_HEX, C_FXP_DISPLAY_FORMAT_COMPLEX, C_FXP_DISPLAY_FORMAT_FULL. Defaults to C_FXP_DISPLAY_FORMAT_FULL.
 
     Attributes:
         TOTAL_SIZE (int) : Number of bits to store whole number (SIGN_SIZE + M_SIZE + N_SIZE).
@@ -475,7 +545,7 @@ class FXPQComplex():
     C_FXP_DISPLAY_FORMAT_COMPLEX    = 1
     C_FXP_DISPLAY_FORMAT_FULL       = 2
     C_FXP_DISPLAY_FORMAT_RAW        = 3
-    def __init__(self, SIGN_SIZE, M_SIZE, N_SIZE, hex_value=0, complex_value=complex(0, 0), display_format=C_FXP_DISPLAY_FORMAT_COMPLEX):
+    def __init__(self, SIGN_SIZE, M_SIZE, N_SIZE, hex_value=0, complex_value=complex(0, 0), display_format=C_FXP_DISPLAY_FORMAT_FULL):
         self.TOTAL_SIZE = SIGN_SIZE + M_SIZE + N_SIZE
 
         self.qRE = FXPQNumber(SIGN_SIZE, M_SIZE, N_SIZE)
@@ -605,9 +675,30 @@ class FXPQComplex():
         Returns:
             Returns (self.qRE - self.qIMG) in FXPQComplex format.
         """
-        _res_RE = self.qRE
-        _res_IMG = 0-self.qIMG
-        _res_IMG.resize(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE) # resize as sub changed format
+        _tmp_IMG = copy.deepcopy(self.qIMG)
+        _tmp_IMG.scale(_tmp_IMG.SIGN_SIZE, _tmp_IMG.M_SIZE+1, _tmp_IMG.N_SIZE)  # scale as conjugate may need additional bit
+
+        _res_RE = copy.deepcopy(self.qRE)
+        _res_RE.scale(_res_RE.SIGN_SIZE, _res_RE.M_SIZE+1, _res_RE.N_SIZE)
+
+        _res_IMG = 0-_tmp_IMG
+        _res_IMG.resize(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE)      # resize as sub changed format
+
+        _hex_value = (_res_IMG.to_hex() << _res_RE.TOTAL_SIZE) | _res_RE.to_hex()
+        return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value, display_format=self.display_format)
+
+    def saturate(self, size):
+        """
+        Perform a saturation to specific bit size operation.
+
+        Args:
+            size (int): Number of bits for saturation (int part should be cut).
+
+        Returns:
+            Returns a FXPQComplex after performing saturation.
+        """
+        _res_RE = self.qRE.saturate(size)
+        _res_IMG = self.qIMG.saturate(size)
         _hex_value = (_res_IMG.to_hex() << _res_RE.TOTAL_SIZE) | _res_RE.to_hex()
         return FXPQComplex(_res_RE.SIGN_SIZE, _res_RE.M_SIZE, _res_RE.N_SIZE, _hex_value, display_format=self.display_format)
 
@@ -635,6 +726,9 @@ class FXPQComplex():
             _disp = "Q{:s} (0x{:x} +j0x{:x}) {:s}".format(str(self.get_format()), self.qRE.to_hex(), self.qIMG.to_hex(), str(self.to_complex()))
 
         return str(_disp)
+
+    def __index__(self):
+        return self.to_hex()
 
     def _convert_arg(self, y):
         # for internal purpose only
